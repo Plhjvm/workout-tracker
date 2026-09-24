@@ -18,3 +18,9 @@ spring:
 
 server:
   port: 8080
+
+app:
+  jwt:
+    # Set JWT_SECRET in IntelliJ Run Config or OS env. Never commit the real value.
+    secret: ${JWT_SECRET}
+    expiration-ms: 86400000
