@@ -4,6 +4,7 @@ import com.workouttracker.workout_tracker.dto.ExerciseRequestDto;
 import com.workouttracker.workout_tracker.dto.ExerciseResponseDto;
 import com.workouttracker.workout_tracker.entity.ExerciseCatalog;
 import com.workouttracker.workout_tracker.entity.MuscleGroup;
+import com.workouttracker.workout_tracker.exception.ConflictException;
 import com.workouttracker.workout_tracker.exception.ResourceNotFoundException;
 import com.workouttracker.workout_tracker.repository.ExerciseRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ public class ExerciseService {
     @Transactional
     public ExerciseResponseDto createExercise(ExerciseRequestDto dto) {
         if (exerciseRepository.existsByNameIgnoreCase(dto.getName())) {
-            throw new ResourceNotFoundException("Exercise with name '" + dto.getName() + "' already exists");
+            throw new ConflictException("Exercise with name '" + dto.getName() + "' already exists");
         }
 
         ExerciseCatalog exercise = ExerciseCatalog.builder()
@@ -64,8 +65,15 @@ public class ExerciseService {
     @Transactional
     public ExerciseResponseDto update(Long id, ExerciseRequestDto dto) {
         ExerciseCatalog exercise = exerciseRepository.findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("Exercise with id '" + id + "' not found"));
-        exercise.setName(dto.getName().trim());
+                .orElseThrow(() -> new ResourceNotFoundException("Exercise with id '" + id + "' not found"));
+
+        String newName = dto.getName().trim();
+        if (!exercise.getName().equalsIgnoreCase(newName)
+                && exerciseRepository.existsByNameIgnoreCase(newName)) {
+            throw new ConflictException("Exercise with name '" + newName + "' already exists");
+        }
+
+        exercise.setName(newName);
         exercise.setMuscleGroup(dto.getMuscleGroup());
         exercise.setDescription(dto.getDescription());
         ExerciseCatalog saved = exerciseRepository.save(exercise);

@@ -12,12 +12,14 @@ import com.workouttracker.workout_tracker.repository.ExerciseRepository;
 import com.workouttracker.workout_tracker.repository.UserRepository;
 import com.workouttracker.workout_tracker.repository.WorkoutRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,9 +30,9 @@ public class WorkoutService {
     private final ExerciseRepository exerciseRepository;
 
     @Transactional
-    public WorkoutResponseDto createWorkout(WorkoutRequestDto dto) {
-        User user = userRepository.findById(dto.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + dto.getUserId()));
+    public WorkoutResponseDto createWorkout(WorkoutRequestDto dto, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         Workout workout = Workout.builder()
                 .user(user)
@@ -39,27 +41,14 @@ public class WorkoutService {
                 .note(dto.getNote())
                 .build();
 
-        for (var setDto : dto.getSets()) {
-            ExerciseCatalog exercise = exerciseRepository.findById(setDto.getExerciseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + setDto.getExerciseId()));
-
-            WorkoutSet set = WorkoutSet.builder()
-                    .exercise(exercise)
-                    .setOrder(setDto.getSetOrder())
-                    .weight(setDto.getWeight())
-                    .reps(setDto.getReps())
-                    .rpe(setDto.getRpe())
-                    .build();
-
-            workout.addSet(set);
-        }
+        addSets(workout, dto);
 
         Workout savedWorkout = workoutRepository.save(workout);
         return mapToDto(savedWorkout);
     }
 
     @Transactional(readOnly = true)
-    public List<WorkoutResponseDto> getWorkoutsByUserId(Long userId) {
+    public List<WorkoutResponseDto> getWorkoutsForUser(Long userId) {
         return workoutRepository.findByUserIdOrderByStartedAtDesc(userId)
                 .stream()
                 .map(this::mapToDto)
@@ -67,10 +56,8 @@ public class WorkoutService {
     }
 
     @Transactional(readOnly = true)
-    public WorkoutSummaryResponseDto getWorkoutSummary(Long workoutId) {
-        Workout workout = workoutRepository.findById(workoutId)
-                .orElseThrow(() -> new ResourceNotFoundException("Workout not found with id: " + workoutId));
-
+    public WorkoutSummaryResponseDto getWorkoutSummary(Long workoutId, Long userId) {
+        Workout workout = getOwnedWorkout(workoutId, userId);
 
         BigDecimal totalTonnage = workout.getSets().stream()
                 .map(set -> set.getWeight().multiply(BigDecimal.valueOf(set.getReps())))
@@ -82,14 +69,10 @@ public class WorkoutService {
 
         int totalSets = workout.getSets().size();
 
-
         Map<String, Integer> setsPerExercise = workout.getSets().stream()
-                .collect(java.util.stream.Collectors.groupingBy(
+                .collect(Collectors.groupingBy(
                         set -> set.getExercise().getName(),
-                        java.util.stream.Collectors.collectingAndThen(
-                                java.util.stream.Collectors.counting(),
-                                Long::intValue
-                        )
+                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)
                 ));
 
         return WorkoutSummaryResponseDto.builder()
@@ -101,6 +84,59 @@ public class WorkoutService {
                 .totalReps(totalReps)
                 .setsPerExercise(setsPerExercise)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public WorkoutResponseDto getById(Long id, Long userId) {
+        return mapToDto(getOwnedWorkout(id, userId));
+    }
+
+    @Transactional
+    public void delete(Long id, Long userId) {
+        Workout workout = getOwnedWorkout(id, userId);
+        workoutRepository.delete(workout);
+    }
+
+    @Transactional
+    public WorkoutResponseDto update(Long id, WorkoutRequestDto dto, Long userId) {
+        Workout workout = getOwnedWorkout(id, userId);
+        workout.setStartedAt(dto.getStartedAt());
+        workout.setEndedAt(dto.getEndedAt());
+        workout.setNote(dto.getNote());
+        workout.getSets().clear();
+        addSets(workout, dto);
+
+        Workout savedWorkout = workoutRepository.save(workout);
+        return mapToDto(savedWorkout);
+    }
+
+    private void addSets(Workout workout, WorkoutRequestDto dto) {
+        for (var setDto : dto.getSets()) {
+            ExerciseCatalog exercise = exerciseRepository.findById(setDto.getExerciseId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Exercise not found with id: " + setDto.getExerciseId()));
+
+            WorkoutSet set = WorkoutSet.builder()
+                    .exercise(exercise)
+                    .setOrder(setDto.getSetOrder())
+                    .weight(setDto.getWeight())
+                    .reps(setDto.getReps())
+                    .rpe(setDto.getRpe())
+                    .build();
+
+            workout.addSet(set);
+        }
+    }
+
+    private Workout getOwnedWorkout(Long workoutId, Long userId) {
+        Workout workout = workoutRepository.findById(workoutId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workout not found with id: " + workoutId));
+
+        if (!workout.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("You do not have access to this workout");
+        }
+
+        return workout;
     }
 
     private WorkoutResponseDto mapToDto(Workout workout) {
@@ -124,47 +160,5 @@ public class WorkoutService {
                 .note(workout.getNote())
                 .sets(sets)
                 .build();
-    }
-
-    @Transactional(readOnly = true)
-    public WorkoutResponseDto getById(Long id) {
-        Workout workout = workoutRepository.findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("Workout with id '" + id + "' not found"));
-        return mapToDto(workout);
-    }
-    
-    @Transactional
-    public void delete(Long id) {
-        Workout workout = workoutRepository.findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("Workout with id '" + id + "' not found"));
-        workoutRepository.delete(workout);
-    }
-
-
-    @Transactional
-    public WorkoutResponseDto update(Long id, WorkoutRequestDto dto) {
-        Workout workout = workoutRepository.findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("Workout with id '" + id + "' not found"));
-        workout.setStartedAt(dto.getStartedAt());
-        workout.setEndedAt(dto.getEndedAt());
-        workout.getSets().clear();
-        workout.setNote(dto.getNote());
-        for (var setDto : dto.getSets()) {
-            ExerciseCatalog exercise = exerciseRepository.findById(setDto.getExerciseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + setDto.getExerciseId()));
-
-            WorkoutSet set = WorkoutSet.builder()
-                    .exercise(exercise)
-                    .setOrder(setDto.getSetOrder())
-                    .weight(setDto.getWeight())
-                    .reps(setDto.getReps())
-                    .rpe(setDto.getRpe())
-                    .build();
-
-            workout.addSet(set);
-        }
-
-        Workout savedWorkout = workoutRepository.save(workout);
-        return mapToDto(savedWorkout);
     }
 }

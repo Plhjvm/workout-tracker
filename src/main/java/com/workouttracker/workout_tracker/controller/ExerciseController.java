@@ -1,16 +1,17 @@
 package com.workouttracker.workout_tracker.controller;
 
+import com.workouttracker.workout_tracker.dto.ExerciseRecordDto;
 import com.workouttracker.workout_tracker.dto.ExerciseRequestDto;
 import com.workouttracker.workout_tracker.dto.ExerciseResponseDto;
 import com.workouttracker.workout_tracker.entity.MuscleGroup;
+import com.workouttracker.workout_tracker.service.CurrentUserService;
+import com.workouttracker.workout_tracker.service.ExerciseRecordService;
 import com.workouttracker.workout_tracker.service.ExerciseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.workouttracker.workout_tracker.dto.ExerciseRecordDto;
-import com.workouttracker.workout_tracker.service.ExerciseRecordService;
 
 import java.util.List;
 
@@ -20,13 +21,12 @@ import java.util.List;
 public class ExerciseController {
 
     private final ExerciseService exerciseService;
-
     private final ExerciseRecordService exerciseRecordService;
+    private final CurrentUserService currentUserService;
 
     @GetMapping("/{id}/records")
-    public ResponseEntity<ExerciseRecordDto> getExerciseRecord(
-            @PathVariable Long id,
-            @RequestParam Long userId) {
+    public ResponseEntity<ExerciseRecordDto> getExerciseRecord(@PathVariable Long id) {
+        Long userId = currentUserService.requireCurrentUserId();
         return ResponseEntity.ok(exerciseRecordService.getExerciseRecord(userId, id));
     }
 
@@ -44,17 +44,20 @@ public class ExerciseController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ExerciseResponseDto>getExerciseById(@PathVariable Long id){
+    public ResponseEntity<ExerciseResponseDto> getExerciseById(@PathVariable Long id) {
         return ResponseEntity.ok(exerciseService.getById(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ExerciseResponseDto> updateExercise(@PathVariable Long id, @Valid @RequestBody ExerciseRequestDto requestDto){
+    public ResponseEntity<ExerciseResponseDto> updateExercise(
+            @PathVariable Long id,
+            @Valid @RequestBody ExerciseRequestDto requestDto
+    ) {
         return ResponseEntity.ok(exerciseService.update(id, requestDto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteExercise(@PathVariable Long id){
+    public ResponseEntity<Void> deleteExercise(@PathVariable Long id) {
         exerciseService.delete(id);
         return ResponseEntity.noContent().build();
     }

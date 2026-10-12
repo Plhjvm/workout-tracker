@@ -15,9 +15,6 @@ import java.util.List;
 @Builder
 public class WorkoutRequestDto {
 
-    @NotNull(message = "User ID is required")
-    private Long userId;
-
     @NotNull(message = "Start time is required")
     private LocalDateTime startedAt;
 

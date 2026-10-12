@@ -5,6 +5,7 @@ import com.workouttracker.workout_tracker.dto.LoginRequestDto;
 import com.workouttracker.workout_tracker.dto.LoginResponseDto;
 import com.workouttracker.workout_tracker.dto.RegisterRequestDto;
 import com.workouttracker.workout_tracker.entity.User;
+import com.workouttracker.workout_tracker.exception.ConflictException;
 import com.workouttracker.workout_tracker.exception.ResourceNotFoundException;
 import com.workouttracker.workout_tracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class AuthService {
         
 
         if (userRepository.findByEmail(dto.getEmail()).isPresent()) {
-            throw new ResourceNotFoundException("Email already in use");
+            throw new ConflictException("Email already in use");
         }
 
         User user = User.builder()
