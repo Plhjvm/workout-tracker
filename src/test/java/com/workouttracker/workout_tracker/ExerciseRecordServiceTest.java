@@ -64,9 +64,8 @@ class ExerciseRecordServiceTest {
     }
 
     @Test
-    @DisplayName("Должен корректно вычислить Max Weight и Estimated 1RM по формуле Эпли")
+    @DisplayName("Should correctly calculate Max Weight and Estimated 1RM using the Epley formula")
     void shouldCalculateCorrectMaxWeightAnd1RM() {
-        // Подход 1: 100 кг на 1 повторение -> 1RM = 100
         WorkoutSet set1 = WorkoutSet.builder()
                 .id(1L)
                 .workout(testWorkout)
@@ -75,7 +74,6 @@ class ExerciseRecordServiceTest {
                 .reps(1)
                 .build();
 
-        // Подход 2: 85.5 кг на 8 повторений -> 1RM = 85.5 * (1 + 8/30) = 108.30
         WorkoutSet set2 = WorkoutSet.builder()
                 .id(2L)
                 .workout(testWorkout)
@@ -90,11 +88,9 @@ class ExerciseRecordServiceTest {
 
         ExerciseRecordDto result = exerciseRecordService.getExerciseRecord(1L, 1L);
 
-        // Проверяем абсолютный максимум веса (должен победить сет 1 с весом 100)
         assertThat(result.getMaxWeight()).isEqualByComparingTo("100.00");
         assertThat(result.getRepsAtMaxWeight()).isEqualTo(1);
 
-        // Проверяем расчетный 1RM (должен победить сет 2 с результатом ~108.30)
         assertThat(result.getEstimated1RM()).isEqualByComparingTo("108.30");
         assertThat(result.getWeightAt1RM()).isEqualByComparingTo("85.50");
         assertThat(result.getRepsAt1RM()).isEqualTo(8);
@@ -103,7 +99,7 @@ class ExerciseRecordServiceTest {
     }
 
     @Test
-    @DisplayName("Должен выбросить ResourceNotFoundException, если пользователь не найден")
+    @DisplayName("Should throw ResourceNotFoundException when user is not found")
     void shouldThrowExceptionWhenUserDoesNotExist() {
         when(userRepository.existsById(999L)).thenReturn(false);
 
@@ -113,7 +109,7 @@ class ExerciseRecordServiceTest {
     }
 
     @Test
-    @DisplayName("Должен возвращать пустые рекорды, если у пользователя нет подходов по упражнению")
+    @DisplayName("Should return empty records when user has no sets for the exercise")
     void shouldReturnEmptyRecordsWhenNoSetsFound() {
         when(userRepository.existsById(1L)).thenReturn(true);
         when(exerciseRepository.findById(1L)).thenReturn(Optional.of(testExercise));
