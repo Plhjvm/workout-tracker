@@ -1,10 +1,12 @@
 package com.workouttracker.workout_tracker.controller;
 
+import com.workouttracker.workout_tracker.dto.ExerciseProgressResponseDto;
 import com.workouttracker.workout_tracker.dto.ExerciseRecordDto;
 import com.workouttracker.workout_tracker.dto.ExerciseRequestDto;
 import com.workouttracker.workout_tracker.dto.ExerciseResponseDto;
 import com.workouttracker.workout_tracker.entity.MuscleGroup;
 import com.workouttracker.workout_tracker.service.CurrentUserService;
+import com.workouttracker.workout_tracker.service.ExerciseProgressService;
 import com.workouttracker.workout_tracker.service.ExerciseRecordService;
 import com.workouttracker.workout_tracker.service.ExerciseService;
 import jakarta.validation.Valid;
@@ -22,12 +24,19 @@ public class ExerciseController {
 
     private final ExerciseService exerciseService;
     private final ExerciseRecordService exerciseRecordService;
+    private final ExerciseProgressService exerciseProgressService;
     private final CurrentUserService currentUserService;
 
     @GetMapping("/{id}/records")
     public ResponseEntity<ExerciseRecordDto> getExerciseRecord(@PathVariable Long id) {
         Long userId = currentUserService.requireCurrentUserId();
         return ResponseEntity.ok(exerciseRecordService.getExerciseRecord(userId, id));
+    }
+
+    @GetMapping("/{id}/progress")
+    public ResponseEntity<ExerciseProgressResponseDto> getExerciseProgress(@PathVariable Long id) {
+        Long userId = currentUserService.requireCurrentUserId();
+        return ResponseEntity.ok(exerciseProgressService.getProgress(userId, id));
     }
 
     @PostMapping
